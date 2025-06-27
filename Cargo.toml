@@ -1,0 +1,11 @@
+[package]
+name = "dcgm_tui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+crossterm = "0.27"
+ratatui = "0.26"
+tokio = { version = "1.38", features = ["full"] } # can be removed if not using async
+clap = { version = "4", features = ["derive"] }
+chrono = "0.4.41"
