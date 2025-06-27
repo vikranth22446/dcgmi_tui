@@ -12,7 +12,7 @@ Interval is in Ms
 
 ## Current Metrics recorded
 ```
-DCGMI 1002,1003,1004,1006,1007,1008,1005,1009,1010,1011,1012
+DCGMI 1002,1003,1004,1006,1007,1008,1005,1009,1010,1011,1012, 252
 ```
 | Field ID | Metric Name     | Description                                               |
 |----------|------------------|-----------------------------------------------------------|
@@ -27,3 +27,4 @@ DCGMI 1002,1003,1004,1006,1007,1008,1005,1009,1010,1011,1012
 | 1010     | PCIRX            | PCIe receive bytes (per interval)                        |
 | 1011     | NVLTX            | NVLink transmit bytes (per interval)                     |
 | 1012     | NVLRX            | NVLink receive bytes (per interval)                      |
+| 252 | FB_USED | Frame buffer/Memory utilized

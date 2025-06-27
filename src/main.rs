@@ -20,8 +20,8 @@ use ratatui::Terminal;
 
 type MetricBuffer = VecDeque<f64>;
 
-const METRIC_NAMES: [&str; 11] = [
-    "SMACT", "SMOCC", "TENSO", "FP64A", "FP32A", "FP16A", "DRAMA", "PCITX", "PCIRX", "NVLTX", "NVLRX"
+const METRIC_NAMES: [&str; 12] = [
+    "SMACT", "SMOCC", "TENSO", "FP64A", "FP32A", "FP16A", "DRAMA", "PCITX", "PCIRX", "NVLTX", "NVLRX", "FB_USED"
 ];
 
 /// GPU DCGM TUI Viewer
@@ -36,22 +36,36 @@ struct Args {
     log_file: Option<String>,
 }
 
-fn format_bytes_per_sec(bps: f64) -> String {
+fn format_bytes_with_unit(value: f64, per_sec: bool) -> String {
     const KB: f64 = 1024.0;
     const MB: f64 = KB * 1024.0;
     const GB: f64 = MB * 1024.0;
     const TB: f64 = GB * 1024.0;
 
-    if bps >= TB {
-        format!("{:.2} TB/s", bps / TB)
-    } else if bps >= GB {
-        format!("{:.2} GB/s", bps / GB)
-    } else if bps >= MB {
-        format!("{:.2} MB/s", bps / MB)
-    } else if bps >= KB {
-        format!("{:.2} KB/s", bps / KB)
+    let (num, unit) = if value >= TB {
+        (value / TB, "TB")
+    } else if value >= GB {
+        (value / GB, "GB")
+    } else if value >= MB {
+        (value / MB, "MB")
+    } else if value >= KB {
+        (value / KB, "KB")
     } else {
-        format!("{:.0} B/s", bps)
+        (value, "B")
+    };
+
+    if unit == "B" {
+        if per_sec {
+            format!("{:.0} B/s", num)
+        } else {
+            format!("{:.0} B", num)
+        }
+    } else {
+        if per_sec {
+            format!("{:.2} {}/s", num, unit)
+        } else {
+            format!("{:.2} {}", num, unit)
+        }
     }
 }
 
@@ -87,11 +101,11 @@ fn parse_metric_line(line: &str) -> Option<Vec<f64>> {
         return None;
     }
     let parts: Vec<&str> = line.split_whitespace().skip(1).collect();
-    if parts.len() != 12 {
+    if parts.len() != 13 {
         return None;
     }
     let values: Vec<f64> = parts.iter().filter_map(|s| s.parse().ok()).collect();
-    if values.len() == 12 {
+    if values.len() == 13 {
         Some(values.into_iter().skip(1).collect())
     } else {
         None
@@ -126,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut child = Command::new("dcgmi")
         .arg("dmon")
         .arg("-e")
-        .arg("1002,1003,1004,1006,1007,1008,1005,1009,1010,1011,1012")
+        .arg("1002,1003,1004,1006,1007,1008,1005,1009,1010,1011,1012,252")
         .arg("--entity-id").arg("0")
         .arg("-d").arg(args.interval_ms.to_string())
         .stdout(Stdio::piped())
@@ -137,7 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut lines = reader.lines();
 
     const HISTORY_LEN: usize = 100;
-    let mut history: Vec<MetricBuffer> = vec![VecDeque::with_capacity(HISTORY_LEN); 11];
+    let mut history: Vec<MetricBuffer> = vec![VecDeque::with_capacity(HISTORY_LEN); 12];
     let mut last_tick = Instant::now();
 
     loop {
@@ -202,7 +216,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     let stats = if *name == "PCITX" || *name == "PCIRX" || *name == "NVLTX" || *name == "NVLRX" {
                         Paragraph::new(vec![
-                            Line::from(Span::raw(format!("p50: {},p90: {}", format_bytes_per_sec(p50), format_bytes_per_sec(p90)))),
+                            Line::from(Span::raw(format!("p50: {},p90: {}", format_bytes_with_unit(p50, true), format_bytes_with_unit(p90, true)))),
+                        ])
+                        .block(Block::default().borders(Borders::ALL))
+                        .style(Style::default().fg(Color::Gray))
+                    } else if *name == "FB_USED" {
+                        Paragraph::new(vec![
+                            // By default MB
+                            Line::from(Span::raw(format!("p50: {},p90: {}", format_bytes_with_unit(p50 * 1024.0 * 1024.0, false), format_bytes_with_unit(p90 *  1024.0 * 1024.0, false)))),
                         ])
                         .block(Block::default().borders(Borders::ALL))
                         .style(Style::default().fg(Color::Gray))
