@@ -136,7 +136,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reader = BufReader::new(stdout);
     let mut lines = reader.lines();
 
-    const HISTORY_LEN: usize = 300;
+    const HISTORY_LEN: usize = 100;
     let mut history: Vec<MetricBuffer> = vec![VecDeque::with_capacity(HISTORY_LEN); 11];
     let mut last_tick = Instant::now();
 
@@ -176,7 +176,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     let mut sorted: Vec<f64> = history[i].iter().copied().filter(|v| *v > 0.0).collect();
                     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                    let (p50, p90, p99) = if sorted.is_empty() {
+                    let (p50, p90, _p99) = if sorted.is_empty() {
                         (0.0, 0.0, 0.0)
                     } else {
                         (
@@ -188,31 +188,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     let chunks = Layout::default()
                         .direction(Direction::Horizontal)
-                        .constraints([Constraint::Percentage(80), Constraint::Percentage(20)])
+                        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)])
                         .split(layout[i]);
 
                     let barchart = BarChart::default()
                         .block(Block::default().borders(Borders::ALL).title(*name))
                         .data(&bar_data)
                         .bar_width(1)
-                        .bar_style(Style::default().fg(Color::Cyan))
+                        .bar_style(Style::default().fg(Color::LightGreen))
                         .value_style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
                         .bar_set(CUSTOM_SET);
                     f.render_widget(barchart, chunks[0]);
 
                     let stats = if *name == "PCITX" || *name == "PCIRX" || *name == "NVLTX" || *name == "NVLRX" {
                         Paragraph::new(vec![
-                            Line::from(Span::raw(format!("p50: {}", format_bytes_per_sec(p50)))),
-                            Line::from(Span::raw(format!("p90: {}", format_bytes_per_sec(p90)))),
-                            Line::from(Span::raw(format!("p99: {}", format_bytes_per_sec(p99)))),
+                            Line::from(Span::raw(format!("p50: {},p90: {}", format_bytes_per_sec(p50), format_bytes_per_sec(p90)))),
                         ])
                         .block(Block::default().borders(Borders::ALL))
                         .style(Style::default().fg(Color::Gray))
                     } else {
                         Paragraph::new(vec![
-                            Line::from(Span::raw(format!("p50: {:.1}%", p50 * 100.0))),
-                            Line::from(Span::raw(format!("p90: {:.1}%", p90 * 100.0))),
-                            Line::from(Span::raw(format!("p99: {:.1}%", p99 * 100.0))),
+                            Line::from(Span::raw(format!("p50: {:.1}% p90: {:.1}%", p50 * 100.0, p90 * 100.0))),
                         ])
                         .block(Block::default().borders(Borders::ALL))
                         .style(Style::default().fg(Color::Gray))
